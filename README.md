@@ -34,7 +34,7 @@ type `o` this will clear out any partitions on the drive
 , and `30310399` for the last sector, then type `t`, and `3` for the third partition, and `82` for the Hex Code
 , then write the partition table and exit by typing `w`
 
-(steps above create 500M for /boot, 12.9GB for / and 1GB for swap)
+(steps above create 500M for `/boot`, 12.9GB for `/` and 1GB for `swap`)
 
 We will format the newly created partitions later with the Debian Installer.
 
@@ -97,6 +97,7 @@ The 1 GB partition format as `swap`.
 `sudo screen /dev/ttyUSB0 115200`  connects you to the serial output of the H64B `CTRL a k` exits screen
 
 on the EXT Connector:
+
     Pin 1 –> TX
     Pin 3 –> RX
     Pin 5 –> Ground
