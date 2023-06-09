@@ -133,7 +133,7 @@ DTB file handling
 
 `chmod +x /etc/kernel/postinst.d/copy-dtbs`
 
-`/etc/kernel/postinst.d/copy-dtbs `uname -r``
+`/etc/kernel/postinst.d/copy-dtbs 'uname -r'`
 
 Bootloader configuration
 
