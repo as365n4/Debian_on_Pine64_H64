@@ -2,13 +2,13 @@
 
 #### 1.)  Download the firmware file and partition image from Debians Server
 
-https://d-i.debian.org/daily-images/arm64/daily/netboot/SD-card-images/firmware.rock64-rk3328.img.gz
+https://d-i.debian.org/daily-images/arm64/daily/netboot/SD-card-images/firmware.none.img.gz
 
 https://d-i.debian.org/daily-images/arm64/daily/netboot/SD-card-images/partition.img.gz
 
 #### 2.)  Merge the firmware file and partition image into bootable Debian image
 
-`zcat firmware.rock64-rk3328.img.gz partition.img.gz > rk64_debian.img`
+`zcat firmware.none.img.gz partition.img.gz > h64_debian.img`
 
 #### 3.)  Flash bootable Debian image onto SD-Card
 
@@ -16,79 +16,193 @@ https://d-i.debian.org/daily-images/arm64/daily/netboot/SD-card-images/partition
 
 `sudo dd if=/dev/zero of=/dev/sdX bs=446 count=32770` wipe the Boot Sector of your SD-Card
 
-`sudo dd if=rk64_debian.img of=/dev/sdX bs=4M conv=fsync` flash Debian image to your SD-Card
+`sudo dd if=h64_debian.img of=/dev/sdX bs=4M conv=fsync` flash Debian image to your SD-Card
 
 replace X with the device letter of your SD-Card
 
-#### 4.)  Download the U-Boot package from Debians Server
-
-https://packages.debian.org/bookworm/arm64/u-boot-rockchip/download
-
-extract the idbloader.img and u-boot.itb files from the package,
-both files are located in u-boot-rockchip_X_arm64.deb/data.tar.xz/./usr/lib/u-boot/rock64-rk3328/
-
-#### 5.)  Prepare the eMMC-Module for the Rock64 SBC (16GB eMMC module (30310400 sectors))
+#### 4.)  Prepare the eMMC-Module for the Pine64 H64B SBC (16GB eMMC module (30310400 sectors))
 
 `sudo fdisk /dev/sdX`
 
 type `o` this will clear out any partitions on the drive
 , type `p` to list partitions, there should be no partitions left
 , type `n` for new partition, then `p` for primary, `1` for the first partition on the drive
-, `32768` for the first sector, and `647168` for the last sector, then type `a`
+, `32768` for the first sector, and `1056767` for the last sector, then type `a`
 , then type `n` for new partition, then `p` for primary, `2` for the second partition on the drive
-, `647169` for the first sector, and `28213246` for the last sector, then type `n`
+, `1056768` for the first sector, and `28213246` for the last sector, then type `n`
 , then `p` for primary, `3` for the third partition on the drive, `28213247` for the first sector
 , and `30310399` for the last sector, then type `t`, and `3` for the third partition, and `82` for the Hex Code
 , then write the partition table and exit by typing `w`
 
-(steps above create 300M for /boot, 14.7GB for / and 1GB for swap)
+(steps above create 500M for /boot, 12.9GB for / and 1GB for swap)
 
 We will format the newly created partitions later with the Debian Installer.
 
-The 300M partition format as ext2 and set mount point to /boot.
-The 14.7GB partition format as ext4 and set mount point to /.
-The 1 GB partition format as swap.
+The 500M partition format as `ext2` and set Mount point to `/boot` and set Label to `boot`.
+The 12.9GB partition format as `ext4` and set Mount point to `/` and set Label ro `root`.
+The 1 GB partition format as `swap`.
 
-#### 6.)  Flash U-Boot (Bootloader) onto the eMMC-Module for the Rock64 SBC
+#### 5.)  Install Cross Compiler for building U-Boot on our x86_64 Debian Host
+
+`sudo apt install device-tree-compiler build-essential libssl-dev python3-dev bison flex libssl-dev swig gcc-aarch64-linux-gnu gcc-arm-none-eabi gcc make bc git`
+
+#### 6.)  Build U-Boot on our x86_64 Debian Host
+
+`cd /home/youruser/assets`
+
+`git clone https://github.com/ARM-software/arm-trusted-firmware`
+
+`cd arm-trusted-firmware`
+
+`git tag` remember last stable (v2.8.0)
+
+`git checkout v2.8.0`
+
+`make CROSS_COMPILE=aarch64-linux-gnu- PLAT=sun50i_h6 bl31`
+
+`cd ..`
+
+`git clone git://git.denx.de/u-boot.git`
+
+`cd u-boot`
+
+`git tag` remember last stable (v2022.10)
+
+`git checkout v2022.10`
+
+`ln -s /home/youruser/assets/arm-trusted-firmware/build/sun50i_h6/release/bl31.bin bl31.bin`
+
+`make CROSS_COMPILE=aarch64-linux-gnu- BL31=bl31.bin pine_h64_defconfig`
+
+`make -j4 CROSS_COMPILE=aarch64-linux-gnu- BL31=bl31.bin`
+
+`cp -r /home/youruser/assets/u-boot/u-boot-sunxi-with-spl.bin /home/youruser/assets/`
+
+`cd ..`
+
+#### 7.)  Flash U-Boot (Bootloader) onto the SD-Card for the Pine64 H64B SBC
+
+`lsblk` find device name of your SD-Card
+
+`sudo dd if=u-boot-sunxi-with-spl.bin of=/dev/sdX bs=1024 seek=8 conv=notrunc` replace X with the device letter of your SD-Card, once finished, unmount the SD-CARD
+
+#### 8.)  Flash U-Boot (Bootloader) onto the eMMC-Module for the Pine64 H64B SBC
 
 `lsblk` find device name of your eMMC-Module
 
-`sudo dd if=idbloader.img of=/dev/sdX seek=64 conv=notrunc` replace X with the device letter of your eMMC-Module
+`sudo dd if=u-boot-sunxi-with-spl.bin of=/dev/sdX bs=1024 seek=8 conv=notrunc` replace X with the device letter of your eMMC-Module, once finished, unmount the eMMC-Module
 
-`sudo dd if=u-boot.itb of=/dev/sdX seek=16384 conv=notrunc`
+#### 9.)  Install the eMMC-Module onto your Pine64 H64B SBC, insert the SD-Card, connect HDMI, Mouse and Keyboard, USB to serial (UART) adapter, USB to Ethernet adapter and power it up, now follow the Debian Installer. (build in Ethernet, WiFi and USB3 do not work during installation)
 
-once finished, unmount the eMMC-Module
+`sudo screen /dev/ttyUSB0 115200`  connects you to the serial output of the H64B `CTRL a k` exits screen
 
-#### 7.)  Install the eMMC-Module onto your Pine64 Rock64 SBC, insert the SD-Card, connect HDMI, Mouse and Keyboard, USB to serial (UART) adapter, power it up and follow the Debian Installer.
+on the EXT Connector:
+    Pin 1 –> TX
+    Pin 3 –> RX
+    Pin 5 –> Ground
 
-`sudo screen /dev/ttyUSB0 1500000`  connects you to the serial output of the Rock64 `CTRL a k` exits screen
+Select the USB Ethernet Adapter as primary network device for the installation.
 
-    Pin 6 –> Ground
-    Pin 8 –> TX
-    Pin 10 –> RX
+Select Manual partitioning and format the already created partitions as mentioned in Step 4.
 
-The Debain Installer will fail at “Making the System bootable”, ignore this and continue with the next step to finish the installation. (bootloader is installed already)
+In `Software selection` select only `SSH server` and `standard system utilities`
 
-#### 8.)  Once installation is finished, add Firmware for Rockchip CDN DisplayPort Controller
+Ignore the `No boot loader installed` warning and `<Continue>`
+
+At the `Finished the installation` prompt select `<Go Back>` and from the
+`Debian Installer main menu` select `Execute a sell` and `<Continue>` and now continue with step 10.
+
+#### 10.)  Create essential but yet missing files
+
+`chroot target`
+
+DTB file handling
+
+`mkdir /boot/dtbs`
+
+`nano /etc/kernel/postinst.d/copy-dtbs` create as below
+
+    #!/bin/sh
+    
+    set -e
+    version=”$1”
+    
+    echo Copying current dtb files to /boot/dtbs….
+    cp -a /usr/lib/linux-image-${version}/. /boot/dtbs/
+
+`chmod +x /etc/kernel/postinst.d/copy-dtbs`
+
+`/etc/kernel/postinst.d/copy-dtbs `uname -r``
+
+Bootloader configuration
+
+`mkdir /boot/extlinux`
+
+`nano /boot/extlinux/extlinux.conf` create as below
+
+    TIMEOUT 2
+    DEFAULT debian
+    
+    LABEL debian
+        MENU LABEL Debian
+        KERNEL /vmlinuz
+        INITRD /initrd.img
+        FDT /dtbs/allwinner/sun50i-h6-pine-h64-model-b.dtb
+        APPEND console=tty1 console=ttyS0,115200 root=LABEL=root rw rootwait
+
+#### 11.)  Hide kernel messages during boot
+
+`nano /etc/sysctl.conf` amend as below
+
+    # Uncomment the following to stop low-level messages on console
+    kernel.printk = 3 4 1 3
+
+#### 12.)  Set primary network interface back to internal Ethernet Port
+
+`nano /etc/network/interfaces` amend as below
+
+    # This file describes the network interfaces available on your system
+    # and how to activate them. For more information, see interfaces(5).
+    
+    source /etc/network/interfaces.d/*
+    
+    # The loopback network interface
+    auto lo
+    iface lo inet loopback
+    
+    # The primary network interface
+    auto end0
+    allow-hotplug end0
+    iface end0 inet dhcp
+
+#### 13.)  Return back to the Debian Installer
+
+`exit`
+
+`exit`
+
+From the `Debian Installer main menu` select `Finish the installation` and `<continue>` and now continue with step 14.
+
+#### 14.)  Once installation is finished, add missing WiFi/Bluetooth Firmware for RTL8723BS Chipset
 
 `nano /etc/apt/sources.list`  amend as below
 
     # deb http://deb.debian.org/debian bookworm main
     
-    deb http://deb.debian.org/debian bookworm main contrib non-free
-    deb-src http://deb.debian.org/debian bookworm main contrib non-free
+    deb http://deb.debian.org/debian bookworm main contrib non-free non-free-firmware
+    deb-src http://deb.debian.org/debian bookworm main contrib non-free non-free-firmware
     
-    deb http://deb.debian.org/debian-security bookworm-security main contrib non-free
-    deb-src http://deb.debian.org/debian-security bookworm-security main contrib non-free
+    deb http://deb.debian.org/debian-security bookworm-security main contrib non-free non-free-firmware
+    deb-src http://deb.debian.org/debian-security bookworm-security main contrib non-free non-free-firmware
     
-    #deb http://deb.debian.org/debian bookworm-updates main contrib non-free    <-- do not use these, they are not active until Bookworm becomes stable release
-    #deb-src http://deb.debian.org/debian bookworm-updates main contrib non-free    <-- do not use these, they are not active until Bookworm becomes stable release
+    #deb http://deb.debian.org/debian bookworm-updates main contrib non-free non-free-firmware
+    #deb-src http://deb.debian.org/debian bookworm-updates main contrib non-free non-free-firmware
   
 `apt update`
   
-`apt install firmware-misc-nonfree` contains –> rockchip/dptx.bin
+`apt install firmware-realtek`
   
-#### 9.)  Perform system update, enable filesystem check at boot and enable sudo
+#### 15.)  Perform system update, enable filesystem check at boot and enable sudo
   
 `apt update`
 
@@ -110,51 +224,19 @@ use `lsblk` to find correct block device for tune2fs
  
 `adduser youruser sudo`
  
-#### 10.)  Hide kernel messages during boot
- 
-`nano /etc/sysctl.conf`  amend as below
-
-    # Uncomment the following to stop low-level messages on console
-    kernel.printk = 3 4 1 3
- 
-#### 11.)  If you operate more than one Rock64 on the same network, you may need MAC address spoofing
- 
-`ip link show end0`  shows current MAC address
-
-If the same MAC address is present multiple times on the same network, then do steps below or the network will not work !
-
-`sudo nano /etc/network/interfaces` amend as below
-
-    # This file describes the network interfaces available on your system
-    # and how to activate them. For more information, see interfaces(5).
-    
-    source /etc/network/interfaces.d/*
-    
-    # The loopback network interface
-    auto lo
-    iface lo inet loopback
-    
-    # The primary network interface
-    allow-hotplug end0
-    iface end0 inet dhcp
-        hwaddress ether da:74:87:XX:XX:XX
-
-change the last 3 bits to your liking, DO NOT change the first 3 bits (reserved for Manufacturer)
-
-`reboot`  once board is up, check with `ip link show end0` for success
-
-#### 12.) Install U-Boot onto your Rock64 to keep U-Boot up-to-date
-
-`apt install u-boot-rockchip u-boot-menu` (flash-kernel is installed already)
-
-`u-boot-update`
-
-`nano /boot/extlinux/extlinux.conf` check boot menu config
-
-`lsblk` find correct block device for U-Boot
-
-`u-boot-install-rockchip /dev/mmcblkX`  flash U-Boot onto block device, replace X with the device number of your eMMC-Module
-
-`reboot`
 
 #### Done, enjoy your setup.
+
+#### What is working and which bit of the board is not working...?
+
+This status report is based on Debian 6.1.0-9 with Kernel 6.1.27-1
+
+eMMC is working
+
+HDMI Video is working
+
+HDMI Audio does not work
+
+USB-3 does not work
+
+WiFi/Bluetooth looses connection regularly and requires restart to reconnect due to unstable firmware/driver 
