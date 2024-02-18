@@ -2,9 +2,11 @@
 
 #### 1.)  Download the firmware file and partition image from Debians Server
 
-https://d-i.debian.org/daily-images/arm64/daily/netboot/SD-card-images/firmware.none.img.gz
+https://deb.debian.org/debian/dists/bookworm/main/installer-arm64/current/images/netboot/SD-card-images/
 
-https://d-i.debian.org/daily-images/arm64/daily/netboot/SD-card-images/partition.img.gz
+https://deb.debian.org/debian/dists/bookworm/main/installer-arm64/current/images/netboot/SD-card-images/firmware.none.img.gz
+
+https://deb.debian.org/debian/dists/bookworm/main/installer-arm64/current/images/netboot/SD-card-images/partition.img.gz
 
 #### 2.)  Merge the firmware file and partition image into bootable Debian image
 
@@ -42,35 +44,30 @@ The 500M partition format as `ext2` and set Mount point to `/boot` and set Label
 The 12.9GB partition format as `ext4` and set Mount point to `/` and set Label ro `root`.
 The 1 GB partition format as `swap`.
 
-#### 5.)  Install Cross Compiler for building U-Boot on our x86_64 Debian Host
+#### 5.)  Download Arm Trusted Firmware from Debians Server
+
+https://packages.debian.org/trixie/arm64/arm-trusted-firmware/download
+
+extract the bl31.bin file from the package,
+the file is located in arm-trusted-firmware_2.10.0+dfsg-1_arm64.deb/data.tar.xz/./usr/lib/arm-trusted-firmware/sun50i_h6/
+
+copy the bl31.bin file into the u-boot folder created at step 7.
+
+#### 6.)  Install Cross Compiler for building U-Boot on our x86_64 Debian Host
 
 `sudo apt install device-tree-compiler build-essential libssl-dev python3-dev bison flex libssl-dev swig gcc-aarch64-linux-gnu gcc-arm-none-eabi gcc make bc git`
 
-#### 6.)  Build U-Boot on our x86_64 Debian Host
+#### 7.)  Build U-Boot on our x86_64 Debian Host
 
 `cd /home/youruser/assets`
-
-`git clone https://github.com/ARM-software/arm-trusted-firmware`
-
-`cd arm-trusted-firmware`
-
-`git tag` remember last stable (v2.8.0)
-
-`git checkout v2.8.0`
-
-`make CROSS_COMPILE=aarch64-linux-gnu- PLAT=sun50i_h6 bl31`
-
-`cd ..`
 
 `git clone git://git.denx.de/u-boot.git`
 
 `cd u-boot`
 
-`git tag` remember last stable (v2022.10)
+`git tag` remember last stable (v2024.01)
 
-`git checkout v2022.10`
-
-`ln -s /home/youruser/assets/arm-trusted-firmware/build/sun50i_h6/release/bl31.bin bl31.bin`
+`git checkout v2024.01`
 
 `make CROSS_COMPILE=aarch64-linux-gnu- BL31=bl31.bin pine_h64_defconfig`
 
@@ -80,19 +77,19 @@ The 1 GB partition format as `swap`.
 
 `cd ..`
 
-#### 7.)  Flash U-Boot (Bootloader) onto the SD-Card for the Pine64 H64B SBC
+#### 8.)  Flash U-Boot (Bootloader) onto the SD-Card for the Pine64 H64B SBC
 
 `lsblk` find device name of your SD-Card
 
 `sudo dd if=u-boot-sunxi-with-spl.bin of=/dev/sdX bs=1024 seek=8 conv=notrunc` replace X with the device letter of your SD-Card, once finished, unmount the SD-CARD
 
-#### 8.)  Flash U-Boot (Bootloader) onto the eMMC-Module for the Pine64 H64B SBC
+#### 9.)  Flash U-Boot (Bootloader) onto the eMMC-Module for the Pine64 H64B SBC
 
 `lsblk` find device name of your eMMC-Module
 
 `sudo dd if=u-boot-sunxi-with-spl.bin of=/dev/sdX bs=1024 seek=8 conv=notrunc` replace X with the device letter of your eMMC-Module, once finished, unmount the eMMC-Module
 
-#### 9.)  Install the eMMC-Module onto your Pine64 H64B SBC, insert the SD-Card, connect HDMI, Mouse and Keyboard, USB to serial (UART) adapter, USB to Ethernet adapter and power it up, now follow the Debian Installer. (build in Ethernet, WiFi and USB3 do not work during installation)
+#### 10.)  Install the eMMC-Module onto your Pine64 H64B SBC, insert the SD-Card, connect HDMI, Mouse and Keyboard, USB to serial (UART) adapter, USB to Ethernet adapter and power it up, now follow the Debian Installer. (build in Ethernet, WiFi and USB3 do not work during installation)
 
 `sudo screen /dev/ttyUSB0 115200`  connects you to the serial output of the H64B `CTRL a k` exits screen
 
@@ -113,7 +110,7 @@ Ignore the `No boot loader installed` warning and `<Continue>`
 At the `Finished the installation` prompt select `<Go Back>` and from the
 `Debian Installer main menu` select `Execute a sell` and `<Continue>` and now continue with step 10.
 
-#### 10.)  Create essential but yet missing files
+#### 11.)  Create essential but yet missing files
 
 `chroot target`
 
@@ -151,14 +148,14 @@ Bootloader configuration
         FDT /dtbs/allwinner/sun50i-h6-pine-h64-model-b.dtb
         APPEND console=tty1 console=ttyS0,115200 root=LABEL=root rw rootwait
 
-#### 11.)  Hide kernel messages during boot
+#### 12.)  Hide kernel messages during boot
 
 `nano /etc/sysctl.conf` amend as below
 
     # Uncomment the following to stop low-level messages on console
     kernel.printk = 3 4 1 3
 
-#### 12.)  Set primary network interface back to internal Ethernet Port
+#### 13.)  Set primary network interface back to internal Ethernet Port
 
 `nano /etc/network/interfaces` amend as below
 
@@ -176,15 +173,15 @@ Bootloader configuration
     allow-hotplug end0
     iface end0 inet dhcp
 
-#### 13.)  Return back to the Debian Installer
+#### 14.)  Return back to the Debian Installer
 
 `exit`
 
 `exit`
 
-From the `Debian Installer main menu` select `Finish the installation` and `<continue>` and now continue with step 14.
+From the `Debian Installer main menu` select `Finish the installation` and `<continue>` and now continue with step 15.
 
-#### 14.)  Once installation is finished, add missing WiFi/Bluetooth Firmware for RTL8723BS Chipset
+#### 15.)  Once installation is finished, add missing WiFi/Bluetooth Firmware for RTL8723BS Chipset
 
 `nano /etc/apt/sources.list`  amend as below
 
@@ -203,7 +200,7 @@ From the `Debian Installer main menu` select `Finish the installation` and `<con
   
 `apt install firmware-realtek`
   
-#### 15.)  Perform system update, enable filesystem check at boot and enable sudo
+#### 16.)  Perform system update, enable filesystem check at boot and enable sudo
   
 `apt update`
 
@@ -230,7 +227,7 @@ use `lsblk` to find correct block device for tune2fs
 
 #### What is working and which bit of the board is not working...?
 
-This status report is based on Debian 6.1.0-9 with Kernel 6.1.27-1
+This status report is based on Debian 6.6.15 with Kernel 6.6.15-2
 
 eMMC is working
 
