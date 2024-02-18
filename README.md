@@ -48,8 +48,8 @@ The 1 GB partition format as `swap`.
 
 https://packages.debian.org/trixie/arm64/arm-trusted-firmware/download
 
-extract the bl31.bin file from the package,
-the file is located in arm-trusted-firmware_2.10.0+dfsg-1_arm64.deb/data.tar.xz/./usr/lib/arm-trusted-firmware/sun50i_h6/
+extract the `bl31.bin` file from the package,
+the file is located in `arm-trusted-firmware_2.10.0+dfsg-1_arm64.deb/data.tar.xz/./usr/lib/arm-trusted-firmware/sun50i_h6/`
 
 copy the bl31.bin file into the u-boot folder created at step 7.
 
